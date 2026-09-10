@@ -8,6 +8,8 @@ import { ReportButton } from "./ReportButton";
 import { timeAgo } from "@/lib/social";
 import { PostMediaCarousel } from "./PostMediaCarousel";
 import type { PostMediaInput } from "@/lib/post-media";
+import { FLORA_REACTIONS } from "@/lib/flora-reactions";
+import { useTranslations } from "next-intl";
 
 type Media = PostMediaInput & { id: string; thumbUrl?: string | null };
 
@@ -58,7 +60,13 @@ type CommentT = {
   author: { id: string; name: string | null; username: string | null; image: string | null };
 };
 
-const EMOJIS = ["👍", "❤️", "😂", "😮", "🔥"];
+/*
+ * Flora reactions — Champey's flower-styled reaction set. The picker keeps
+ * the familiar Facebook-style pill but blooms with Khmer flora glyphs:
+ * love (🌸 bloom / 💗 heart) and a wilting 🥀 for disgust. Keys are plain
+ * emoji strings, which is all the backend Reaction model stores.
+ */
+const EMOJIS = FLORA_REACTIONS.map((r) => r.key);
 
 export function PostCard({
   post,
@@ -71,6 +79,7 @@ export function PostCard({
   onEdited?: (post: FeedPost) => void;
   onTogglePin?: (pinned: boolean) => void;
 }) {
+  const t = useTranslations("floraReactions");
   const { data: session } = useSession();
   const meId = session?.user?.id;
   const [reactions, setReactions] = useState(post.reactions);
@@ -286,21 +295,34 @@ export function PostCard({
             onClick={() => (myReaction ? react(myReaction) : setShowPicker((v) => !v))}
             onDoubleClick={() => setShowPicker(true)}
             className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              myReaction ? "bg-gold-50 dark:bg-gold-950/40 text-gold-600" : "text-gray-500 dark:text-gray-400 hover:bg-[var(--surface-2)]"
+              myReaction
+                ? "bg-[var(--cp-flower-soft)] text-[var(--cp-flower-deep)]"
+                : "text-gray-500 dark:text-gray-400 hover:bg-[var(--surface-2)]"
             }`}
           >
-            {myReaction || "👍"} React
+            {myReaction || "🌸"} {t("react")}
           </button>
           {showPicker && (
-            <div className="absolute bottom-full mb-2 left-0 bg-[var(--surface)] rounded-full shadow-lg border border-gray-100 px-2 py-1.5 flex gap-1 z-10">
-              {EMOJIS.map((emoji) => (
+            <div
+              className="flora-picker absolute bottom-full mb-2 left-0 rounded-full shadow-lg border border-gray-100 px-2 py-1.5 flex gap-1 z-10"
+              style={{ background: "var(--surface)" }}
+            >
+              {FLORA_REACTIONS.map((reaction, i) => (
                 <button
-                  key={emoji}
-                  onClick={() => react(emoji)}
-                  aria-label={`React with ${emoji}`}
-                  className="text-xl hover:scale-125 transition-transform"
+                  key={reaction.key}
+                  onClick={() => react(reaction.key)}
+                  aria-label={t(reaction.labelKey)}
+                  title={t(reaction.labelKey)}
+                  style={{
+                    animationDelay: `${i * 40}ms`,
+                    filter:
+                      myReaction === reaction.key
+                        ? `drop-shadow(0 0 6px ${reaction.color})`
+                        : undefined,
+                  }}
+                  className="flora-react text-xl hover:scale-125 transition-transform"
                 >
-                  {emoji}
+                  {reaction.glyph}
                 </button>
               ))}
             </div>

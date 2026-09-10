@@ -1,6 +1,6 @@
-# KHMERONLINESHOP
+# Champey 🌸
 
-Smart commerce & community platform for Cambodia: storefront, seller marketplace, social feed, and AI assistant.
+Cambodia's professional social platform — feed, people & groups first, with a marketplace and careers woven in (plus an AI assistant).
 
 ## Stack
 

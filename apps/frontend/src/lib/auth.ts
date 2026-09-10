@@ -1,5 +1,6 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@theo/database";
+import { isClerkEnabled } from "@/lib/clerk-flag";
 
 /**
  * The local user as the rest of the app knows it: the DB uuid (sub) is what
@@ -100,6 +101,10 @@ async function provisionUser(userId: string): Promise<LocalUser | null> {
 }
 
 async function resolveLocalUser(): Promise<LocalUser | null> {
+  // Guest mode (no publishable key): clerkMiddleware never ran, so auth()
+  // has no request context and would throw. Nobody can be signed in.
+  if (!isClerkEnabled()) return null;
+
   const { userId } = await auth();
   if (!userId) return null;
 

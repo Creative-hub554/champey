@@ -15,10 +15,13 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/toast";
 import SessionWrapper from "@/components/SessionWrapper";
 import { AssistantWidget } from "@/components/AssistantWidget";
+import { IntroOnboarding } from "@/components/IntroOnboarding";
+import { FirstEntryRouter } from "@/components/FirstEntryRouter";
 import { ChatDockProvider } from "@/components/chat/ChatDock";
 import { SentryInit } from "@/components/SentryInit";
 import { OrganizationJsonLd } from "@/components/OrganizationJsonLd";
 import { SITE_NAME, SITE_DESCRIPTION, getSiteUrl, languageAlternates } from "@/lib/site";
+import { skinBootstrapScript } from "@/lib/skins";
 import "../globals.css";
 
 const inter = Inter({
@@ -50,7 +53,7 @@ const fraunces = Fraunces({
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1e1b4b",
+  themeColor: "#1c1226",
 };
 
 export const metadata: Metadata = {
@@ -109,14 +112,17 @@ export default async function LocaleLayout({ children, params }: Props) {
   return (
     <html lang={locale} className={`${inter.variable} ${notoSansKhmer.variable} ${spaceGrotesk.variable} ${fraunces.variable}`} suppressHydrationWarning>
       <body className="min-h-screen text-gray-900 dark:text-slate-200 antialiased">
+        <script dangerouslySetInnerHTML={{ __html: skinBootstrapScript }} />
         <OrganizationJsonLd />
         <ThemeProvider>
           <SessionWrapper>
             <NextIntlClientProvider locale={locale} messages={messages}>
               <Toaster />
               <Nav />
-              <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+              <main className="cp-main-pad min-h-[calc(100vh-4rem)]">{children}</main>
               <Footer />
+              <IntroOnboarding />
+              <FirstEntryRouter />
               <AssistantWidget />
               <ChatDockProvider />
               <SentryInit />

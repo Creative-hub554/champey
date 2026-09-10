@@ -1,14 +1,12 @@
 import { Link } from "@/i18n/navigation";
 import { getTranslations } from "next-intl/server";
-import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import {
   ShieldCheck,
-  Handshake,
-  Sprout,
+  Briefcase,
+  Users,
   MessagesSquare,
   Store,
-  Briefcase,
+  FileText,
   ArrowRight,
   Check,
   Sparkles,
@@ -18,22 +16,22 @@ import { LxReveal } from "@/components/landing/LxReveal";
 
 export const dynamic = "force-dynamic";
 
-/* --- Royal Luxe tile gradients (deep, lacquered night colors) --- */
+/* --- Champey Social tile gradients (indigo night × flora accents) --- */
 const TILE_GRADIENTS = [
-  "linear-gradient(150deg, #232048 0%, #14122b 100%)", // indigo night
-  "linear-gradient(150deg, #b08d3e 0%, #8a6a26 100%)", // temple gold
-  "linear-gradient(150deg, #a8532f 0%, #7c3a1f 100%)", // lacquer clay
-  "linear-gradient(150deg, #2f6d5a 0%, #1e4a3c 100%)", // jade
-  "linear-gradient(150deg, #c79a3f 0%, #a8761f 100%)", // harvest gold
-  "linear-gradient(150deg, #35295a 0%, #1d1a3f 100%)", // twilight
-  "linear-gradient(150deg, #7c4a8f 0%, #4c2f63 100%)", // lotus
-  "linear-gradient(150deg, #8a6a26 0%, #5c4416 100%)", // bronze
+  "linear-gradient(150deg, #232c48 0%, #141826 100%)", // indigo night
+  "linear-gradient(150deg, #5b7fd4 0%, #3a5cb0 100%)", // krama indigo
+  "linear-gradient(150deg, #f0a95f 0%, #d97b3f 100%)", // frangipani amber
+  "linear-gradient(150deg, #6f9e7f 0%, #4a7a5c 100%)", // jasmine leaf
+  "linear-gradient(150deg, #e879a6 0%, #c2497f 100%)", // champey blossom
+  "linear-gradient(150deg, #4a2a4f 0%, #2e1836 100%)", // dusk orchid
+  "linear-gradient(150deg, #d9608f 0%, #9c3f68 100%)", // rumdul rose
+  "linear-gradient(150deg, #8a5a68 0%, #5c3a46 100%)", // petal mauve
 ];
 
 export default async function Home() {
-  // Social-first: signed-in users land on their feed, guests see the landing.
-  const { userId } = await auth();
-  if (userId) redirect("/feed");
+  // Social-first: the landing is the guest experience. Signed-in users see it
+  // too, but FirstEntryRouter (client) instantly routes them ONCE per browser —
+  // own profile setup for fresh accounts, feed for everyone else.
 
   const t = await getTranslations("home");
   const nav = await getTranslations("nav");
@@ -44,11 +42,12 @@ export default async function Home() {
     .catch(() => []);
 
   const features = [
-    { title: t("feature1Title"), desc: t("feature1Desc"), Icon: ShieldCheck },
-    { title: t("feature2Title"), desc: t("feature2Desc"), Icon: Handshake },
-    { title: t("feature3Title"), desc: t("feature3Desc"), Icon: Sprout },
+    { title: t("feature1Title"), desc: t("feature1Desc"), Icon: Users },
+    { title: t("feature2Title"), desc: t("feature2Desc"), Icon: FileText },
+    { title: t("feature3Title"), desc: t("feature3Desc"), Icon: ShieldCheck },
   ];
   const tiles = categories.slice(0, 8);
+  // Professional-network ordering: connect first, careers second, market third.
   const pillars = [
     {
       href: "/feed",
@@ -57,16 +56,16 @@ export default async function Home() {
       Icon: MessagesSquare,
     },
     {
-      href: "/market",
-      label: nav("market"),
-      blurb: t("pillarMarket"),
-      Icon: Store,
-    },
-    {
       href: "/jobs",
       label: nav("jobs"),
       blurb: t("pillarJobs"),
       Icon: Briefcase,
+    },
+    {
+      href: "/market",
+      label: nav("market"),
+      blurb: t("pillarMarket"),
+      Icon: Store,
     },
   ];
 
@@ -106,8 +105,8 @@ export default async function Home() {
                 {t("heroSubtitle")}
               </p>
               <div className="mt-9 flex flex-wrap gap-3.5">
-                <Link href="/shop" className="lx-btn lx-btn-gold lx-btn-xl">
-                  {t("browseShop")}
+                <Link href="/login" className="lx-btn lx-btn-gold lx-btn-xl">
+                  {t("joinCta")}
                   <ArrowRight size={18} aria-hidden />
                 </Link>
                 <Link
@@ -128,23 +127,35 @@ export default async function Home() {
             </div>
           </LxReveal>
 
-          {/* Floating product card + chips (decorative) */}
+          {/* Mock social post + reaction chips (decorative) — sells the feed,
+              not a product: this is a professional social platform. */}
           <div className="relative hidden h-[430px] md:block" aria-hidden>
-            <div className="lx-float absolute left-1/2 top-1/2 w-[280px] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border border-[rgba(244,240,230,0.16)] bg-[rgba(23,20,46,0.55)] p-3 shadow-[0_40px_80px_-32px_rgba(0,0,0,0.7)] backdrop-blur-xl">
-              <div
-                className="flex h-[300px] items-end rounded-[18px] p-5"
-                style={{ background: TILE_GRADIENTS[1] }}
-              >
-                <span className="text-[15px] font-semibold leading-snug text-[color:var(--lx-on-night)]">
-                  {t("heroCardTagline")}
+            <div className="lx-float absolute left-1/2 top-1/2 w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-[26px] border border-[rgba(244,240,230,0.16)] bg-[rgba(23,20,46,0.55)] p-4 shadow-[0_40px_80px_-32px_rgba(0,0,0,0.7)] backdrop-blur-xl">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-[15px]"
+                  style={{ background: "var(--cp-flower-grad)" }}
+                >
+                  🌸
                 </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-[color:var(--lx-on-night)]">
+                    Sokha Chann
+                  </p>
+                  <p className="text-[11px] text-[color:var(--lx-on-night-muted)]">
+                    {t("heroPostRole")}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center justify-between px-1 pb-1 pt-3.5">
-                <span className="text-sm font-semibold text-[color:var(--lx-on-night)]">
-                  iPhone 13 Pro · 256GB
+              <p className="mt-3 rounded-[14px] p-3 text-[13px] leading-relaxed text-[color:var(--lx-on-night)]" style={{ background: TILE_GRADIENTS[0] }}>
+                {t("heroPostBody")}
+              </p>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-[11px] font-medium text-[color:var(--lx-on-night-muted)]">
+                  🌸 💗 248
                 </span>
-                <span className="lx-serif text-base font-semibold text-[color:var(--lx-gold)]">
-                  $640
+                <span className="text-[11px] font-medium text-[color:var(--lx-on-night-muted)]">
+                  💬 {t("heroPostComments")}
                 </span>
               </div>
             </div>
@@ -153,11 +164,11 @@ export default async function Home() {
               style={{ animationDelay: "0.9s" }}
             >
               <Check size={15} aria-hidden />
-              Verified seller
+              {t("heroChipVerified")}
             </span>
             <span className="lx-chip bottom-[14%] right-0" style={{ animationDelay: "1.7s" }}>
-              <span className="lx-chip-stars">★★★★★</span>
-              4.9 · 2.1k reviews
+              <span>🌸💗🥀</span>
+              {t("heroChipReactions")}
             </span>
           </div>
         </div>
@@ -206,7 +217,7 @@ export default async function Home() {
               <Link href={href} className="lx-card group block p-8">
                 <span
                   className="flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-[0_10px_24px_-10px_rgba(138,106,38,0.7)]"
-                  style={{ background: TILE_GRADIENTS[1] }}
+                  style={{ background: "var(--cp-flower-grad)" }}
                 >
                   <Icon size={22} aria-hidden />
                 </span>
@@ -310,14 +321,22 @@ export default async function Home() {
               <div className="lx-rule mb-7">
                 <span className="lx-eyebrow shrink-0 px-2">{t("ctaKicker")}</span>
               </div>
-              <h2 className="lx-display text-3xl md:text-[2.6rem]">{t("becomeSeller")}</h2>
+              <h2 className="lx-display text-3xl md:text-[2.6rem]">{t("ctaTitle")}</h2>
               <p className="mt-4 text-[15.5px] leading-relaxed text-[color:var(--lx-on-night-muted)]">
-                {t("becomeSellerDesc")}
+                {t("ctaDesc")}
               </p>
-              <Link href="/seller/apply" className="lx-btn lx-btn-white lx-btn-xl mt-9">
-                {t("applyNow")}
-                <ArrowRight size={18} aria-hidden />
-              </Link>
+              <div className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
+                <Link href="/login" className="lx-btn lx-btn-white lx-btn-xl">
+                  {t("joinCta")}
+                  <ArrowRight size={18} aria-hidden />
+                </Link>
+                <Link
+                  href="/seller/apply"
+                  className="lx-btn lx-btn-xl border border-[var(--lx-on-night-line)] text-[color:var(--lx-on-night)] hover:bg-[rgba(244,240,230,0.08)]"
+                >
+                  {t("becomeSeller")}
+                </Link>
+              </div>
             </div>
           </div>
         </LxReveal>

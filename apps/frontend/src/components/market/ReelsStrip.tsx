@@ -38,7 +38,6 @@ export function ReelsStrip() {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
   if (promos.length === 0) return null;

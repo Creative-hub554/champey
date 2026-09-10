@@ -11,6 +11,7 @@ import React, {
   type ReactNode,
 } from "react";
 import { useAuth, useClerk, useUser } from "@clerk/nextjs";
+import { isClerkEnabled } from "@/lib/clerk-flag";
 
 export type BridgeUser = {
   id: string;
@@ -53,8 +54,32 @@ async function fetchBridgeSession(): Promise<BridgeSession | null> {
  * Bridges Clerk sessions to the app's local user records so components can
  * keep using the familiar `useSession()` shape: session.user.id is the local
  * DB uuid and session.user.role comes from the database.
+ *
+ * Without a Clerk publishable key the app runs in guest mode: the Clerk
+ * hooks below would throw outside a provider, so a dedicated guest bridge
+ * reports a permanent unauthenticated session instead.
  */
 export function SessionBridge({ children }: { children: ReactNode }) {
+  if (!isClerkEnabled()) {
+    return <GuestBridge>{children}</GuestBridge>;
+  }
+  return <ClerkBridged>{children}</ClerkBridged>;
+}
+
+function GuestBridge({ children }: { children: ReactNode }) {
+  const value = useMemo<SessionContextValue>(
+    () => ({
+      data: null,
+      status: "unauthenticated",
+      update: async () => null,
+      signOut: async () => {},
+    }),
+    []
+  );
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
+}
+
+function ClerkBridged({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
   const clerk = useClerk();

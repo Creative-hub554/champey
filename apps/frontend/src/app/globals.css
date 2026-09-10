@@ -1184,3 +1184,588 @@ img {
   }
 }
 
+
+/* ============================================================
+   CHAMPEY SOCIAL v3 — Facebook × Instagram hybrid chrome with
+   Khmer flora identity (champey pink × frangipani amber).
+   Appended after Royal Luxe so these declarations win the cascade.
+   ============================================================ */
+
+:root {
+  /* FB-style top chrome (day) — neutral professional default */
+  --chrome-bg: #f4f5f8;
+  --chrome-surface: #ffffff;
+  --chrome-text: #1b1d24;
+  --chrome-muted: #7d8291;
+  --chrome-hover: #edf1f9;
+  --chrome-line: rgba(27, 29, 36, 0.1);
+  --chrome-tab-bg: rgba(255, 255, 255, 0.88);
+  /* Accent scale — indigo (the pink Champey look is the .skin-champey skin) */
+  --cp-blossom: #a9bff0;
+  --cp-flower: #5b7fd4;
+  --cp-flower-deep: #3a5cb0;
+  --cp-amber: #f0a95f;
+  --cp-flower-grad: linear-gradient(120deg, #a9bff0 0%, #5b7fd4 48%, #f0a95f 100%);
+  --cp-flower-soft: rgba(91, 127, 212, 0.14);
+}
+
+.dark {
+  --chrome-bg: #12141a;
+  --chrome-surface: #1a1d24;
+  --chrome-text: #f0f1f4;
+  --chrome-muted: #949aa8;
+  --chrome-hover: #22262f;
+  --chrome-line: rgba(240, 241, 244, 0.12);
+  --chrome-tab-bg: rgba(18, 20, 26, 0.88);
+  --cp-blossom: #a9bff0;
+  --cp-flower: #7d9be4;
+  --cp-flower-deep: #8fa9e8;
+  --cp-amber: #f0a95f;
+}
+
+/* ---- IG-style bottom tab bar (mobile) ---- */
+.cp-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  padding: 6px 10px calc(6px + env(safe-area-inset-bottom));
+  background: var(--chrome-tab-bg);
+  border-top: 1px solid var(--chrome-line);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+}
+.cp-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  max-width: 96px;
+  padding: 8px 0;
+  border-radius: 14px;
+  color: var(--chrome-muted);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+.cp-tab:active {
+  transform: scale(0.92);
+}
+.cp-tab-active {
+  color: var(--cp-flower);
+}
+.cp-tab-active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: var(--cp-flower-soft);
+  z-index: 0;
+}
+.cp-tab > * {
+  position: relative;
+  z-index: 1;
+}
+.cp-badge {
+  position: absolute;
+  top: 1px;
+  right: calc(50% - 20px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--cp-flower), var(--cp-amber));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cp-badge-inline {
+  display: inline-flex;
+  align-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--cp-flower), var(--cp-amber));
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  justify-content: center;
+}
+
+/* Room for the fixed bottom bar on small screens */
+@media (max-width: 767px) {
+  .cp-main-pad {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Gradient petal hover for chrome icon buttons */
+.cp-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--chrome-text);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+.cp-iconbtn:hover {
+  background: var(--cp-flower-soft);
+}
+.cp-iconbtn:active {
+  transform: scale(0.94);
+}
+
+/* Small chrome buttons (theme toggle, locale switcher) — readable in the
+   light top bar, tinted on hover, dark-mode inherits the same tokens. */
+.cp-chromebtn {
+  color: var(--chrome-text);
+}
+.cp-chromebtn:hover {
+  color: var(--cp-flower);
+}
+
+/* ---- Royal Luxe retint: gold → indigo flower palette (default) ---- */
+.lx-root {
+  --lx-ink: #1b1d24;
+  --lx-ink-soft: #4a4f5e;
+  --lx-muted: #8a8f9c;
+  --lx-paper: #fafbfc;
+  --lx-paper-2: #ffffff;
+  --lx-line: #e6e9ef;
+  --lx-gold: #5b7fd4;
+  --lx-gold-deep: #3a5cb0;
+  --lx-gold-tint: #eef2fc;
+  --lx-clay: #f0a95f;
+  --lx-jade: #6f9e7f;
+}
+.dark .lx-root {
+  --lx-ink: #f0f1f4;
+  --lx-ink-soft: #ccd1da;
+  --lx-muted: #949aa8;
+  --lx-paper: #12141a;
+  --lx-paper-2: #1a1d24;
+  --lx-line: #2a2e38;
+  --lx-gold: #7d9be4;
+  --lx-gold-deep: #8fa9e8;
+  --lx-gold-tint: rgba(91, 127, 212, 0.14);
+  --lx-clay: #f0a95f;
+  --lx-jade: #8fbf9f;
+}
+
+/* Indigo night hero with soft blossom glows */
+.lx-hero-bg {
+  background:
+    radial-gradient(1100px 520px at 78% -10%, rgba(91, 127, 212, 0.24), transparent 60%),
+    radial-gradient(820px 460px at 8% 12%, rgba(240, 169, 95, 0.14), transparent 58%),
+    linear-gradient(160deg, #14161f 0%, #1c2030 52%, #232842 100%);
+}
+.lx-hero-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, rgba(235, 240, 252, 0.55) 49%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 30% 8%, rgba(235, 240, 252, 0.4) 49%, transparent 51%),
+    radial-gradient(1px 1px at 46% 26%, rgba(240, 225, 210, 0.4) 49%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 62% 12%, rgba(235, 240, 252, 0.5) 49%, transparent 51%),
+    radial-gradient(1px 1px at 78% 22%, rgba(235, 240, 252, 0.32) 49%, transparent 51%),
+    radial-gradient(1px 1px at 90% 6%, rgba(235, 235, 250, 0.42) 49%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 22% 38%, rgba(235, 240, 252, 0.24) 49%, transparent 51%),
+    radial-gradient(1px 1px at 84% 40%, rgba(235, 240, 252, 0.22) 49%, transparent 51%);
+  opacity: 0.85;
+}
+.lx-hero-bg::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: min(920px, 92%);
+  height: 340px;
+  transform: translateX(-50%);
+  z-index: -1;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(91, 127, 212, 0.08) 46px 47px),
+    repeating-linear-gradient(0deg, transparent 0 46px, rgba(91, 127, 212, 0.08) 46px 47px);
+  -webkit-mask-image: radial-gradient(58% 100% at 50% 100%, black 35%, transparent 78%);
+  mask-image: radial-gradient(58% 100% at 50% 100%, black 35%, transparent 78%);
+  opacity: 0.9;
+}
+
+/* Accent-gradient buttons */
+.lx-btn-gold {
+  background: var(--cp-flower-grad);
+  color: #fff;
+  box-shadow: 0 14px 30px -14px rgba(58, 92, 176, 0.65);
+}
+.lx-btn-gold:hover {
+  box-shadow: 0 18px 36px -14px rgba(58, 92, 176, 0.75);
+}
+.dark .lx-btn-gold {
+  color: #10131c;
+}
+.lx-btn-ink {
+  background: #14161f;
+  color: #f0f2f8;
+  box-shadow: 0 14px 30px -16px rgba(16, 19, 28, 0.8);
+}
+
+/* Serif gradient headline word — petal gradient */
+.lx-hero-bg .text-gradient,
+.lx-root .text-gradient {
+  background: var(--cp-flower-grad);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Section band + hover accents pick up the accent tint */
+.lx-band {
+  background: linear-gradient(180deg, rgba(91, 127, 212, 0.08), rgba(91, 127, 212, 0));
+}
+.lx-card:hover {
+  border-color: color-mix(in srgb, var(--cp-flower) 45%, var(--lx-line));
+  box-shadow: 0 24px 48px -28px rgba(58, 92, 176, 0.4);
+}
+.lx-tile:hover {
+  box-shadow: 0 24px 46px -24px rgba(16, 19, 28, 0.55);
+}
+.lx-chip .lx-chip-stars {
+  color: var(--cp-amber);
+}
+
+/* App-wide accent token retint (buttons, inputs, cards outside .lx-root) */
+:root {
+  --color-gold: #5b7fd4;
+  --color-gold-light: #a9bff0;
+  --color-gold-dark: #3a5cb0;
+  --color-accent: #5b7fd4;
+  --color-accent-dark: #3a5cb0;
+  --color-accent2: #f0a95f;
+  --color-accent2-dark: #5b7fd4;
+  --border-gold: rgba(91, 127, 212, 0.28);
+  --glass-border: rgba(91, 127, 212, 0.25);
+}
+.dark {
+  --border-gold: rgba(91, 127, 212, 0.22);
+  --glass-border: rgba(91, 127, 212, 0.18);
+}
+.text-gradient {
+  background: linear-gradient(90deg, #5b7fd4, #f0a95f, #5b7fd4);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.btn-primary {
+  background: var(--cp-flower-grad);
+  box-shadow: 0 4px 14px -4px rgba(58, 92, 176, 0.55);
+}
+.btn-primary:hover {
+  background: linear-gradient(120deg, #5b7fd4, #3a5cb0);
+  box-shadow: 0 6px 20px -4px rgba(58, 92, 176, 0.7);
+}
+.page-title::after,
+.gold-underline::after {
+  background: linear-gradient(90deg, #5b7fd4, #f0a95f);
+}
+.nav-link::after {
+  background: linear-gradient(90deg, #5b7fd4, #f0a95f);
+}
+
+
+/* ============================================================
+   UI SKINS — five Khmer-flora accent styles the user can pick.
+   Each `skin-<id>` class on <html> re-anchors the --chrome-* and
+   --cp-* accent tokens; surfaces stay neutral so every skin reads
+   cleanly in both day and dark modes. Default = Champey Blossom
+   (no class needed). See src/lib/skins.ts for the catalog.
+   ============================================================ */
+
+/* Jasmine Mist — cool jasmine-leaf green */
+.skin-jasmine {
+  --chrome-hover: #e9f4ec;
+  --cp-blossom: #d3ecd9;
+  --cp-flower: #5fa777;
+  --cp-flower-deep: #3e7d55;
+  --cp-amber: #8fc7a0;
+  --cp-flower-grad: linear-gradient(120deg, #a8d8b9 0%, #5fa777 48%, #8fc7a0 100%);
+  --cp-flower-soft: rgba(95, 167, 119, 0.14);
+  --color-gold: #5fa777;
+  --color-gold-light: #8fc7a0;
+  --color-gold-dark: #3e7d55;
+  --color-accent: #5fa777;
+  --color-accent-dark: #3e7d55;
+  --color-accent2: #8fc7a0;
+  --color-accent2-dark: #5fa777;
+}
+.dark .skin-jasmine {
+  --chrome-hover: #1f2b23;
+  --cp-flower: #7fbf97;
+  --cp-flower-deep: #8fc7a0;
+  --cp-amber: #a8d8b9;
+  --color-gold: #7fbf97;
+  --color-gold-light: #a8d8b9;
+  --color-gold-dark: #5fa777;
+  --color-accent: #7fbf97;
+  --color-accent-dark: #5fa777;
+  --color-accent2: #a8d8b9;
+  --color-accent2-dark: #7fbf97;
+}
+
+/* Lotus Ivory — temple gold, the ceremonial bloom */
+.skin-lotus {
+  --chrome-hover: #f7f1de;
+  --cp-blossom: #f2e6bd;
+  --cp-flower: #c9a227;
+  --cp-flower-deep: #9a7a1c;
+  --cp-amber: #e8cc6e;
+  --cp-flower-grad: linear-gradient(120deg, #f2e6bd 0%, #c9a227 48%, #e8cc6e 100%);
+  --cp-flower-soft: rgba(201, 162, 39, 0.14);
+  --color-gold: #c9a227;
+  --color-gold-light: #e8cc6e;
+  --color-gold-dark: #9a7a1c;
+  --color-accent: #c9a227;
+  --color-accent-dark: #9a7a1c;
+  --color-accent2: #e8cc6e;
+  --color-accent2-dark: #c9a227;
+}
+.dark .skin-lotus {
+  --chrome-hover: #2b2517;
+  --cp-flower: #dcc25e;
+  --cp-flower-deep: #e8cc6e;
+  --cp-amber: #f2e6bd;
+  --color-gold: #dcc25e;
+  --color-gold-light: #f2e6bd;
+  --color-gold-dark: #c9a227;
+  --color-accent: #dcc25e;
+  --color-accent-dark: #c9a227;
+  --color-accent2: #f2e6bd;
+  --color-accent2-dark: #dcc25e;
+}
+
+/* Rumdul Sunset — frangipani amber, warm evening market */
+.skin-rumdul {
+  --chrome-hover: #faeedd;
+  --cp-blossom: #f7c08a;
+  --cp-flower: #e8823f;
+  --cp-flower-deep: #b85f22;
+  --cp-amber: #f2b25f;
+  --cp-flower-grad: linear-gradient(120deg, #f7c08a 0%, #e8823f 48%, #f2b25f 100%);
+  --cp-flower-soft: rgba(232, 130, 63, 0.14);
+  --color-gold: #e8823f;
+  --color-gold-light: #f2b25f;
+  --color-gold-dark: #b85f22;
+  --color-accent: #e8823f;
+  --color-accent-dark: #b85f22;
+  --color-accent2: #f2b25f;
+  --color-accent2-dark: #e8823f;
+}
+.dark .skin-rumdul {
+  --chrome-hover: #2e2118;
+  --cp-flower: #f09a5e;
+  --cp-flower-deep: #f2b25f;
+  --cp-amber: #f7c08a;
+  --color-gold: #f09a5e;
+  --color-gold-light: #f7c08a;
+  --color-gold-dark: #e8823f;
+  --color-accent: #f09a5e;
+  --color-accent-dark: #e8823f;
+  --color-accent2: #f7c08a;
+  --color-accent2-dark: #f09a5e;
+}
+
+/* Twilight Orchid — dusk orchid violet */
+.skin-orchid {
+  --chrome-hover: #f1eafa;
+  --cp-blossom: #d3b8f2;
+  --cp-flower: #9b6fd0;
+  --cp-flower-deep: #6f4aa3;
+  --cp-amber: #c49af0;
+  --cp-flower-grad: linear-gradient(120deg, #d3b8f2 0%, #9b6fd0 48%, #c49af0 100%);
+  --cp-flower-soft: rgba(155, 111, 208, 0.14);
+  --color-gold: #9b6fd0;
+  --color-gold-light: #c49af0;
+  --color-gold-dark: #6f4aa3;
+  --color-accent: #9b6fd0;
+  --color-accent-dark: #6f4aa3;
+  --color-accent2: #c49af0;
+  --color-accent2-dark: #9b6fd0;
+}
+.dark .skin-orchid {
+  --chrome-hover: #241c30;
+  --cp-flower: #b28fe0;
+  --cp-flower-deep: #c49af0;
+  --cp-amber: #d3b8f2;
+  --color-gold: #b28fe0;
+  --color-gold-light: #d3b8f2;
+  --color-gold-dark: #9b6fd0;
+  --color-accent: #b28fe0;
+  --color-accent-dark: #9b6fd0;
+  --color-accent2: #d3b8f2;
+  --color-accent2-dark: #b28fe0;
+}
+
+/* Champey Blossom — the signature pink, now an optional skin */
+.skin-champey {
+  --chrome-bg: #f4f1ee;
+  --chrome-text: #241b20;
+  --chrome-muted: #8d7f84;
+  --chrome-hover: #f6e9ec;
+  --chrome-line: rgba(36, 27, 32, 0.1);
+  --cp-blossom: #f5b8c4;
+  --cp-flower: #e879a6;
+  --cp-flower-deep: #c2497f;
+  --cp-amber: #f5a15f;
+  --cp-flower-grad: linear-gradient(120deg, #f5b8c4 0%, #e879a6 48%, #f5a15f 100%);
+  --cp-flower-soft: rgba(232, 121, 166, 0.14);
+  --color-gold: #e879a6;
+  --color-gold-light: #f5b8c4;
+  --color-gold-dark: #c2497f;
+  --color-accent: #e879a6;
+  --color-accent-dark: #c2497f;
+  --color-accent2: #f5a15f;
+  --color-accent2-dark: #e879a6;
+  --border-gold: rgba(232, 121, 166, 0.28);
+  --glass-border: rgba(232, 121, 166, 0.25);
+  --lx-gold: #e879a6;
+  --lx-gold-deep: #c2497f;
+  --lx-gold-tint: #fdeef4;
+}
+.dark .skin-champey {
+  --chrome-bg: #14101a;
+  --chrome-surface: #1e1724;
+  --chrome-text: #f3eee9;
+  --chrome-muted: #a08e97;
+  --chrome-hover: #2a2132;
+  --chrome-line: rgba(243, 238, 233, 0.12);
+  --chrome-tab-bg: rgba(24, 18, 30, 0.88);
+  --cp-blossom: #f5b8c4;
+  --cp-flower: #ef8fb4;
+  --cp-flower-deep: #d9608f;
+  --cp-amber: #f7b077;
+  --color-gold: #ef8fb4;
+  --color-gold-light: #f5b8c4;
+  --color-gold-dark: #d9608f;
+  --color-accent: #ef8fb4;
+  --color-accent-dark: #d9608f;
+  --color-accent2: #f7b077;
+  --color-accent2-dark: #ef8fb4;
+  --border-gold: rgba(232, 121, 166, 0.22);
+  --glass-border: rgba(232, 121, 166, 0.18);
+  --lx-gold: #ef8fb4;
+  --lx-gold-deep: #d9608f;
+  --lx-gold-tint: rgba(232, 121, 166, 0.14);
+}
+
+/* ============================================================
+   FLORA REACTIONS — blooming flower reaction picker for posts.
+   ============================================================ */
+
+/* Petal-scale pop-in for the picker; each button is delayed inline. */
+@keyframes flora-bloom {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.4) rotate(-30deg);
+  }
+  60% {
+    transform: translateY(-3px) scale(1.18) rotate(6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+.flora-picker {
+  animation: flora-bloom 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: bottom left;
+}
+.flora-react {
+  animation: flora-bloom 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: center bottom;
+}
+.flora-react:hover {
+  transform: translateY(-4px) scale(1.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flora-picker,
+  .flora-react {
+    animation: none;
+  }
+  .flora-react:hover {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   INTRO ONBOARDING — boot splash + first-visit welcome card.
+   ============================================================ */
+
+@keyframes intro-bloom-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-90deg);
+  }
+  60% {
+    transform: scale(1.12) rotate(8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+.intro-bloom {
+  animation: intro-bloom-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  filter: drop-shadow(0 0 24px rgba(232, 121, 166, 0.55));
+}
+
+.intro-word {
+  animation: intro-bloom-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+
+@keyframes intro-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.intro-card {
+  animation: intro-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes intro-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.intro-step {
+  animation: intro-step-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-bloom,
+  .intro-word,
+  .intro-card,
+  .intro-step {
+    animation: none;
+  }
+}

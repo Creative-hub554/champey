@@ -10,6 +10,7 @@ import { useSession } from "@/lib/session-client";
 import { Avatar } from "@/components/social/Avatar";
 import { uploadFile } from "@/lib/social";
 import { useTranslations } from "next-intl";
+import { markEntryDone } from "@/components/FirstEntryRouter";
 
 type Album = {
   id: string;
@@ -43,6 +44,9 @@ export default function EditProfilePage() {
   const [albumDescription, setAlbumDescription] = useState("");
   const [albums, setAlbums] = useState<Album[]>([]);
   const [albumSaving, setAlbumSaving] = useState(false);
+  // First-time setup: fresh accounts (nothing filled in yet) get a welcome
+  // banner; once a name/bio exists the page is just "edit profile".
+  const [isFresh, setIsFresh] = useState(false);
 
   useEffect(() => {
     if (status !== "authenticated") return;
@@ -57,6 +61,7 @@ export default function EditProfilePage() {
         setBio(p.bio ?? "");
         setAccountPrivate(Boolean(p.accountPrivate));
         setAlbums(Array.isArray(p.albums) ? p.albums : []);
+        setIsFresh(!p.username && !p.bio);
       })
       .catch(() => {});
   }, [status, session?.user?.id]);
@@ -115,6 +120,7 @@ export default function EditProfilePage() {
     setError("");
     setSaving(true);
     try {
+      if (isFresh) markEntryDone(); // setup complete — future entries go to feed
       const res = await fetch("/api/profiles/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -170,7 +176,15 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-xl mx-auto px-4 py-10">
-      <h1 className="text-2xl font-bold mb-6">Edit profile</h1>
+      {isFresh && (
+        <div className="mb-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--cp-flower-soft)] px-4 py-3.5">
+          <p className="text-sm font-semibold">🌸 {t("welcomeTitle")}</p>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">{t("welcomeHint")}</p>
+        </div>
+      )}
+      <h1 className="text-2xl font-bold mb-6">
+        {isFresh ? t("setupTitle") : t("editTitle")}
+      </h1>
 
       <div className="relative mb-12">
         <label className="block h-36 rounded-2xl overflow-hidden cursor-pointer group">
