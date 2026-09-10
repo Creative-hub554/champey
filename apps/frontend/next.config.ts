@@ -11,7 +11,39 @@ const nextConfig: NextConfig = {
   // Standalone output + monorepo tracing root are required for a lean Docker image.
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../../"),
-  transpilePackages: ["@react-pdf/renderer", "@theo/ui"],
+  // @theo/ui is raw TS source and must be transpiled. @react-pdf/renderer ships
+  // consumable ESM — transpiling its entire tree was a big SWC/native-memory
+  // cost during the production compile for no benefit.
+  transpilePackages: ["@theo/ui"],
+  // Memory-constrained builders (2GB CI/sandbox containers) OOM during the
+  // webpack production compile: the graph (mermaid, @imgly, react-pdf, tiptap)
+  // is huge. Reduce peak RSS: serialize build workers, drop the build-time
+  // webpack filesystem cache (PackFileCacheStrategy serialization), and enable
+  // webpack's memory-optimization experiment. (swcMinify is dead in Next 15 —
+  // SWC minify is already the default.)
+  productionBrowserSourceMaps: false,
+  experimental: {
+    webpackMemoryOptimizations: true,
+    // Run the webpack production compile inside a dedicated build worker and
+    // serialize module processing — both cut peak RSS on 2GB builders.
+    webpackBuildWorker: true,
+    cpus: 1,
+    optimizePackageImports: ["lucide-react"],
+  },
+  webpack: (config, { dev }) => {
+    // Production-only memory caps: no build-time webpack cache, serialized
+    // module processing, and no source-map generation — the largest burst
+    // allocator in the compile (hundreds of MB in seconds, enough to OOM-kill
+    // 2GB builders with no swap; none are served anyway since
+    // productionBrowserSourceMaps is false). Dev keeps its filesystem cache
+    // for fast HMR.
+    if (!dev) {
+      config.cache = false;
+      config.parallelism = 1;
+      config.devtool = false;
+    }
+    return config;
+  },
   // Keep Prisma external to the server bundle: the query engine DLL is resolved
   // at runtime from node_modules (the store's .prisma/client), and bundling it
   // makes the client look for the engine next to .next/server, which fails.
