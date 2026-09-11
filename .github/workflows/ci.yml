@@ -120,13 +120,26 @@ jobs:
       - name: Lowercase image name
         run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
+      - name: Detect Docker Hub credentials
+        # The secrets context is unavailable in step if:/with:, so probe it
+        # here (run: allows secrets) and branch on env.HAS_DOCKER_CREDS below.
+        # Inert until Docker Hub secrets exist (see docs/deployment.md).
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        run: |
+          if [ -n "$DOCKER_USERNAME" ]; then
+            echo "HAS_DOCKER_CREDS=true" >> "$GITHUB_ENV"
+            echo "Docker Hub credentials configured — images will be built and pushed"
+          else
+            echo "HAS_DOCKER_CREDS=false" >> "$GITHUB_ENV"
+            echo "DOCKER_USERNAME not set — skipping image builds/pushes (see docs/deployment.md)"
+          fi
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
-        # Inert until Docker Hub secrets exist (see docs/deployment.md): the
-        # login/push steps skip, so pushes to main stay green without creds.
-        if: github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != ''
+        if: env.HAS_DOCKER_CREDS == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
@@ -144,18 +157,20 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
 
       - name: Build and push backend
+        if: env.HAS_DOCKER_CREDS == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./apps/backend/Dockerfile
-          push: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.sha }}
-          cache-from: ${{ secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-backend:buildcache', env.REGISTRY, env.IMAGE_NAME) || '' }}
-          cache-to: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-backend:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}-backend:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
 
       - name: Build and push frontend
+        if: env.HAS_DOCKER_CREDS == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -163,24 +178,25 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL }}
-          push: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.sha }}
-          cache-from: ${{ secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-frontend:buildcache', env.REGISTRY, env.IMAGE_NAME) || '' }}
-          cache-to: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-frontend:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}-frontend:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
 
       - name: Build and push admin
+        if: env.HAS_DOCKER_CREDS == 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./apps/admin/Dockerfile
-          push: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' }}
+          push: ${{ github.event_name != 'pull_request' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin:${{ github.sha }}
-          cache-from: ${{ secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-admin:buildcache', env.REGISTRY, env.IMAGE_NAME) || '' }}
-          cache-to: ${{ github.event_name != 'pull_request' && secrets.DOCKER_USERNAME != '' && format('type=registry,ref={0}/{1}-admin:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-admin:buildcache
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0}/{1}-admin:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
 
   dependency-review:
     runs-on: ubuntu-latest
