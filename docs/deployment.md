@@ -82,6 +82,25 @@ pnpm --filter frontend exec wrangler r2 bucket create champey-isr-cache
 Cache entries can be scoped with the `NEXT_INC_CACHE_R2_PREFIX` Worker var
 (defaults to `incremental-cache`).
 
+### Pull-request previews (Cloudflare)
+
+`.github/workflows/cloudflare-preview.yml` deploys a preview Worker per PR
+and comments the workers.dev URL on the PR. Same repo secrets as the main
+deploy path (`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`); nothing runs
+until they exist, so PRs stay green without credentials.
+
+- Preview Workers are named `champey-frontend-pr-<num>` — a temp wrangler
+  config rewrites both the worker name and the `WORKER_SELF_REFERENCE`
+  binding, so preview self-fetches never touch the production Worker.
+- ISR cache entries are isolated via `NEXT_INC_CACHE_R2_PREFIX=pr-<num>`
+  inside the shared `champey-isr-cache` bucket.
+- Runtime secrets (`DATABASE_URL`, `CLERK_*`, `JWT_SECRET`, `AUTH_SECRET`)
+  are forwarded to the preview only if they exist as repo secrets **and**
+  the PR is from a same-repo branch (fork PRs never receive secrets and run
+  in guest mode).
+- The preview Worker is deleted when the PR closes (REST call, no
+  interactive prompt).
+
 ## Target topology
 
 One host runs the whole platform behind nginx:

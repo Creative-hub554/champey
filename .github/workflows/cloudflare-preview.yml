@@ -1,0 +1,228 @@
+name: Cloudflare PR Preview
+
+# Deploys a per-PR preview Worker (champey-frontend-pr-<num>) and comments the
+# workers.dev preview URL on the pull request. Production (champey-frontend)
+# is only ever deployed by cloudflare-deploy.yml from main.
+#
+# - The preview gets its own name AND WORKER_SELF_REFERENCE binding (a temp
+#   wrangler config rewrites both occurrences of "champey-frontend") so
+#   OpenNext's internal self-fetches never cross into the production Worker.
+# - The ISR cache stays isolated: NEXT_INC_CACHE_R2_PREFIX=pr-<num> scopes the
+#   preview's entries inside the shared champey-isr-cache bucket.
+# - The preview Worker is deleted when the PR closes (REST call — avoids the
+#   interactive `wrangler delete` prompt).
+# - Fork PRs never receive repo secrets, so the probe step skips everything.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: cloudflare-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/theo_platform"
+  NEXTAUTH_SECRET: "ci_dummy_secret"
+  AUTH_SECRET: "ci_dummy_secret"
+  JWT_SECRET: "ci_dummy_secret"
+  MEILI_HOST: "http://localhost:7700"
+  MEILI_API_KEY: ""
+
+jobs:
+  preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    services:
+      # next build prerenders DB-backed pages, exactly like the CI verify job.
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: theo_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Cloudflare credentials
+        # The secrets context is unavailable in step if:, so probe it here
+        # (run: allows secrets) and gate later steps on env.HAS_CF_CREDS.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "HAS_CF_CREDS=true" >> "$GITHUB_ENV"
+            echo "Cloudflare credentials configured — preview will deploy"
+          else
+            echo "HAS_CF_CREDS=false" >> "$GITHUB_ENV"
+            echo "CLOUDFLARE_API_TOKEN not set — skipping PR preview deploy (see docs/deployment.md)"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: env.HAS_CF_CREDS == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF_CREDS == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database exec prisma generate
+
+      - name: Sync schema
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database exec prisma db push --skip-generate
+
+      # @theo/database resolves via dist/ at build time (main: ./dist/index.js);
+      # build:cf only runs the frontend script, so build the dependency first.
+      - name: Build workspace dependencies
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database run build
+
+      - name: Build OpenNext bundle
+        if: env.HAS_CF_CREDS == 'true'
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: pnpm --filter frontend run build:cf
+
+      - name: Deploy preview Worker
+        id: deploy
+        if: env.HAS_CF_CREDS == 'true'
+        working-directory: apps/frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PREVIEW_NAME="champey-frontend-pr-${PR_NUMBER}"
+          # Rewrite the worker name AND the WORKER_SELF_REFERENCE service
+          # binding — the only two occurrences of "champey-frontend" in the
+          # config — so the preview is a fully separate Worker.
+          sed "s/champey-frontend/${PREVIEW_NAME}/g" wrangler.jsonc > wrangler.preview.jsonc
+          OUT=$(npx wrangler deploy --config wrangler.preview.jsonc \
+            --var "NEXT_INC_CACHE_R2_PREFIX:pr-${PR_NUMBER}" 2>&1)
+          echo "$OUT"
+          URL=$(echo "$OUT" | grep -oE 'https://[^[:space:]]+\.workers\.dev' | head -n1)
+          if [ -z "$URL" ]; then
+            echo "::error::No workers.dev URL found in wrangler deploy output"
+            exit 1
+          fi
+          echo "url=${URL}" >> "$GITHUB_OUTPUT"
+
+      - name: Push runtime secrets to preview (optional)
+        # Only for same-repo branch PRs: preview Workers run PR code, so fork
+        # PRs must never receive runtime secrets (they can't anyway — fork
+        # pull_request runs get no secrets — this gate keeps that explicit).
+        if: env.HAS_CF_CREDS == 'true' && github.event.pull_request.head.repo.fork == false
+        working-directory: apps/frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          CLERK_WEBHOOK_SECRET: ${{ secrets.CLERK_WEBHOOK_SECRET }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+        run: |
+          # Forward only the configured subset of repo secrets to the preview
+          # Worker; with none set the preview simply runs in guest mode.
+          SECRETS_JSON=$(jq -n '
+            env
+            | with_entries(select(.key as $k |
+                ["DATABASE_URL","CLERK_SECRET_KEY","CLERK_WEBHOOK_SECRET","JWT_SECRET","AUTH_SECRET"]
+                | index($k) != null))
+            | with_entries(select(.value != ""))')
+          COUNT=$(echo "$SECRETS_JSON" | jq 'length')
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No runtime secrets configured — preview runs in guest mode"
+            exit 0
+          fi
+          echo "$SECRETS_JSON" > preview-secrets.json
+          npx wrangler secret bulk preview-secrets.json --config wrangler.preview.jsonc
+          rm preview-secrets.json
+
+      - name: Comment preview URL on the PR
+        if: steps.deploy.outputs.url != ''
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const marker = "<!-- champey-preview-url -->";
+            const { PREVIEW_URL, PR_NUMBER, SHA } = process.env;
+            const issueNumber = Number(PR_NUMBER);
+            const body = [
+              marker,
+              "## 🔍 Champey preview deployed",
+              "",
+              `**Preview URL:** ${PREVIEW_URL}`,
+              "",
+              `Deployed from commit \`${SHA}\`. Redeployed automatically on every push to this PR; the preview Worker is deleted when the PR closes.`,
+              "",
+              "_If no runtime secrets are configured for previews, the preview runs in guest mode (no DB/API)._",
+            ].join("\n");
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+            });
+            const existing = comments.data.find(
+              (c) => c.body && c.body.includes(marker)
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            }
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete preview Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "CLOUDFLARE_API_TOKEN not set — nothing to clean up"
+            exit 0
+          fi
+          SCRIPT="champey-frontend-pr-${PR_NUMBER}"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE \
+            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/${SCRIPT}" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}")
+          echo "DELETE ${SCRIPT} → HTTP ${CODE} (404 = already gone)"
