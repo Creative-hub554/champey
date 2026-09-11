@@ -27,8 +27,10 @@ cached "Retry deployment" is being clicked); re-point it at `main`.
 `.github/workflows/cloudflare-deploy.yml` builds the OpenNext bundle and
 deploys the Worker on every push to `main` via `wrangler-action` — no
 dashboard clicks needed. It is inert until two repo secrets exist:
-(Status 2026-09-11: `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are
-configured — pushes to `main` now deploy for real.)
+(Status 2026-09-11: token/account-id secrets are still not visible to the
+workflow — the credential probe prints `MISSING` per secret; confirm they
+are saved under Settings → Secrets and variables → **Actions → Secrets**
+with exact names `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`.)
 
 | Secret | Where to get it |
 |---|---|
