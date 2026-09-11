@@ -1,0 +1,114 @@
+name: Cloudflare Deploy
+
+# Builds the frontend with OpenNext and deploys the Worker to Cloudflare on
+# every push to main, so code deploys never depend on the dashboard. Runtime
+# secrets (DATABASE_URL, CLERK_SECRET_KEY, …) are Worker secrets, not repo
+# secrets — set them once via the dashboard or `pnpm --filter frontend exec
+# wrangler secret put NAME` (see docs/deployment.md).
+#
+# Inert until CLOUDFLARE_API_TOKEN is configured, mirroring the Docker Hub
+# gating in ci.yml/docker-build.yml: the probe step exports HAS_CF_CREDS and
+# every build/deploy step is gated on it, so pushes to main stay green.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: cloudflare-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/theo_platform"
+  NEXTAUTH_SECRET: "ci_dummy_secret"
+  AUTH_SECRET: "ci_dummy_secret"
+  JWT_SECRET: "ci_dummy_secret"
+  MEILI_HOST: "http://localhost:7700"
+  MEILI_API_KEY: ""
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    services:
+      # next build prerenders DB-backed pages, exactly like the CI verify job.
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: theo_platform
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect Cloudflare credentials
+        # The secrets context is unavailable in step if:, so probe it here
+        # (run: allows secrets) and gate later steps on env.HAS_CF_CREDS.
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "HAS_CF_CREDS=true" >> "$GITHUB_ENV"
+            echo "Cloudflare credentials configured — deploying frontend Worker"
+          else
+            echo "HAS_CF_CREDS=false" >> "$GITHUB_ENV"
+            echo "CLOUDFLARE_API_TOKEN not set — skipping Cloudflare deploy (see docs/deployment.md)"
+          fi
+
+      - uses: pnpm/action-setup@v4
+        if: env.HAS_CF_CREDS == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_CF_CREDS == 'true'
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database exec prisma generate
+
+      - name: Sync schema
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database exec prisma db push --skip-generate
+
+      # @theo/database resolves via dist/ at build time (main: ./dist/index.js);
+      # build:cf only runs the frontend script, so build the dependency first.
+      - name: Build workspace dependencies
+        if: env.HAS_CF_CREDS == 'true'
+        run: pnpm --filter @theo/database run build
+
+      # NEXT_PUBLIC_* are inlined at build time — passed through from GitHub
+      # secrets when configured (empty means the value is not set yet; the
+      # Worker will still build, Clerk-hosted UI needs the real key to render).
+      - name: Build OpenNext bundle
+        if: env.HAS_CF_CREDS == 'true'
+        env:
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+        run: pnpm --filter frontend run build:cf
+
+      - name: Deploy to Cloudflare Workers
+        if: env.HAS_CF_CREDS == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: apps/frontend
+          command: deploy

@@ -22,21 +22,45 @@ with no `apps/`/`packages/` — never pin a Cloudflare deploy to it. If a
 Cloudflare deployment keeps rebuilding that SHA, the project is pinned (or a
 cached "Retry deployment" is being clicked); re-point it at `main`.
 
+### Automated deploys (GitHub Actions)
+
+`.github/workflows/cloudflare-deploy.yml` builds the OpenNext bundle and
+deploys the Worker on every push to `main` via `wrangler-action` — no
+dashboard clicks needed. It is inert until two repo secrets exist:
+
+| Secret | Where to get it |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare dashboard → My Profile → API Tokens → template "Edit Cloudflare Workers" (needs Workers Scripts:Edit + Account Settings:Read) |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → Workers & Pages → right sidebar "Account ID" |
+
+Optional build-time (`NEXT_PUBLIC_*`) secrets: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+`NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_API_URL` — these are inlined at build
+time, so set them as repo secrets too, matching the Worker values.
+
+Until the token is set, the workflow prints a skip message and exits green,
+like the gated Docker jobs.
+
 ### One-time setup (Cloudflare dashboard)
 
-1. Workers & Pages → Create → Workers → **Import a repository** →
-   `Creative-hub554/champey`, branch `main` (do **not** reuse the old Pages
-   project pinned to `f4f84b7`).
-2. Build settings: working directory `apps/frontend`,
-   **Build command** `pnpm run build:cf`, **Deploy command**
-   `npx wrangler deploy` (reads `apps/frontend/wrangler.jsonc`).
-3. First deploy, then Worker → Settings → Variables and Secrets:
+Only the secrets + webhook are dashboard work once CI is wired:
+
+1. Create the Worker once by pushing to `main` (or run the workflow via
+   "Run workflow"); `wrangler.jsonc` names it `champey-frontend`. A manual
+   first run via `pnpm --filter frontend run deploy:cf` (`wrangler login`)
+   also works.
+2. Worker → Settings → Variables and Secrets:
    `DATABASE_URL` (public TCP-reachable Postgres — Neon/Supabase pooler, not
    localhost), `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
    `NEXT_PUBLIC_SITE_URL` (the worker URL), `CLERK_WEBHOOK_SECRET`,
    `JWT_SECRET`, `AUTH_SECRET`, `SENTRY_DSN` +
    `NEXT_PUBLIC_SENTRY_DSN` (if Sentry used), MinIO/S3 vars for uploads.
-4. Point the Clerk webhook at `https://<worker>/api/webhooks/clerk`.
+3. Point the Clerk webhook at `https://<worker>/api/webhooks/clerk`.
+
+(The full dashboard-import path — Workers & Pages → Create → Workers →
+Import a repository → branch `main`, build `pnpm run build:cf`, deploy
+`npx wrangler deploy` — remains an alternative if you prefer Cloudflare's
+git integration over GitHub Actions. Do **not** reuse the old Pages project
+pinned to `f4f84b7`.)
 
 ### Local commands
 
