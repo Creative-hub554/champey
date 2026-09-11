@@ -159,6 +159,34 @@ until they exist, so PRs stay green without credentials.
 - The preview Worker is deleted when the PR closes (REST call, no
   interactive prompt).
 
+## Freebuff managed hosting (frontend, zero-secrets path)
+
+Alternative to Cloudflare that needs **no GitHub secrets at all**. The
+builder is Node-only (no Docker/pip), installs then builds, and the build
+must exit without starting a server:
+
+- Preview/install: `pnpm install && pnpm --filter @theo/database build`
+- Build: `pnpm --filter @theo/database build && pnpm --filter frontend build`
+
+**Ordering matters**: production env vars (`freebuff-deploy env set`) can
+only be configured **after** the first deploy creates the hosting project —
+until then the CLI errors with "This project has no hosting project yet".
+The first deploy therefore builds without production secrets, and env vars
+land on the **next** deploy:
+
+1. Deploy button (user): pick domain → first deploy → hosting project exists.
+2. `freebuff-deploy env set '{...}'` (JWT_SECRET, AUTH_SECRET — 32 random
+   bytes, base64url; DATABASE_URL, Clerk keys; NEXT_PUBLIC_SITE_URL = the
+   production URL).
+3. Redeploy (user's Deploy button again, or `freebuff-deploy start`) —
+   `NEXT_PUBLIC_*` are inlined at build time, so they must exist before the
+   build that ships.
+4. Point the Clerk webhook at `<production-url>/api/webhooks/clerk`.
+
+`freebuff-deploy check` validates the command config without a build; the
+platform prepends a `chmod +x` pass for `scripts/*.sh` (uploaded files lose
+the executable bit).
+
 ## Target topology
 
 One host runs the whole platform behind nginx:
