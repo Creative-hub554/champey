@@ -8,7 +8,9 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
   "name": "champey-frontend",
-  "compatibility_date": "2024-12-30",
+  // Matches @opennextjs/cloudflare's own template default; the adapter warns
+  // when the date drifts >6 months behind (build.js compatibility-date check).
+  "compatibility_date": "2026-08-01",
   "compatibility_flags": [
     // Node.js APIs in Workers (required by the adapter).
     "nodejs_compat",
@@ -34,5 +36,13 @@
       "binding": "NEXT_INC_CACHE_R2_BUCKET",
       "bucket_name": "champey-isr-cache"
     }
-  ]
+  ],
+  "images": {
+    // next/image optimization via Cloudflare Images. Enable Image
+    // Transformations on the account BEFORE un commenting: with the binding
+    // set but the service disabled, /_next/image fails hard; without the
+    // binding it degrades gracefully to the original image (a warn + pass-
+    // through in the adapter's images template).
+    // "binding": "IMAGES"
+  }
 }

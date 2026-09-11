@@ -82,6 +82,31 @@ pnpm --filter frontend exec wrangler r2 bucket create champey-isr-cache
 Cache entries can be scoped with the `NEXT_INC_CACHE_R2_PREFIX` Worker var
 (defaults to `incremental-cache`).
 
+### Config audit (2026-09-11, against @opennextjs/cloudflare 1.20.6)
+Verified from the installed adapter's source, not just docs:
+
+- **compatibility_date `2026-08-01`** — matches the adapter's own template
+  default; the build warns when the date is >6 months old (previously
+  `2024-12-30` triggered that warning on every build).
+- **Next.js 15.5 + wrangler 4.131** — supported (adapter floor is Next 14.2;
+  the wrangler ≥4.59.2 warning only applies to Next 16.1+).
+- **`output: "standalone"`** — expected by the adapter's `createServerBundle`
+  (it reads `.next/standalone`), do not remove it.
+- **No `runtime = "edge"`** exports anywhere in the app (get-started step 9).
+- **next/image** — 23 files use it, only 3 pass `unoptimized`. Without an
+  `IMAGES` binding, `/_next/image` **degrades gracefully** (adapter template
+  logs `env.IMAGES binding is not defined` and returns the original image);
+  with the binding set but Image Transformations disabled on the account it
+  fails hard. The binding is left commented in `wrangler.jsonc` until Image
+  Transformations is enabled — flip it on, then redeploy.
+- **tag cache / queue** — the adapter's `dummy` defaults are fine: the app
+  never calls `revalidateTag`/`revalidatePath`. Revisit only if ISR with
+  tags/`on-demand revalidation` is added (needs Durable Objects + DO queue).
+- **`.dev.vars` / `.wrangler/`** — gitignored so local `preview:cf` secrets
+  can't be committed.
+- **Env vars** — the adapter reads config from `open-next.config.ts`; keep
+  runtime secrets in the dashboard/`wrangler secret put`, never in the repo.
+
 ### Pull-request previews (Cloudflare)
 
 `.github/workflows/cloudflare-preview.yml` deploys a preview Worker per PR

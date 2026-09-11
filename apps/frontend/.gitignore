@@ -47,3 +47,7 @@ playwright-report/
 
 # OpenNext Cloudflare build output
 .open-next/
+
+# Wrangler local dev secrets (wrangler dev / preview:cf)
+.dev.vars
+.wrangler/
