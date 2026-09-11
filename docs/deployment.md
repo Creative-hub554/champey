@@ -27,6 +27,8 @@ cached "Retry deployment" is being clicked); re-point it at `main`.
 `.github/workflows/cloudflare-deploy.yml` builds the OpenNext bundle and
 deploys the Worker on every push to `main` via `wrangler-action` — no
 dashboard clicks needed. It is inert until two repo secrets exist:
+(Status 2026-09-11: `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are
+configured — pushes to `main` now deploy for real.)
 
 | Secret | Where to get it |
 |---|---|
