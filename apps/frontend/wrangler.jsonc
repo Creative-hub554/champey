@@ -5,6 +5,14 @@
   // Deploy: pnpm --filter frontend run deploy:cf
   // NOTE: production secrets (DATABASE_URL, CLERK_SECRET_KEY, …) are set with
   // `wrangler secret put` / the Cloudflare dashboard, not in this file.
+  //
+  // next/image optimization via Cloudflare Images: enable Image
+  // Transformations on the account, then add:
+  //   "images": { "binding": "IMAGES" }
+  // Do NOT add an empty "images": {} — wrangler requires
+  // images.binding to be a string and rejects the object outright. With no
+  // images key at all, /_next/image degrades gracefully to the original
+  // image (warn + pass-through in the adapter's images template).
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
   "name": "champey-frontend",
@@ -36,13 +44,5 @@
       "binding": "NEXT_INC_CACHE_R2_BUCKET",
       "bucket_name": "champey-isr-cache"
     }
-  ],
-  "images": {
-    // next/image optimization via Cloudflare Images. Enable Image
-    // Transformations on the account BEFORE un commenting: with the binding
-    // set but the service disabled, /_next/image fails hard; without the
-    // binding it degrades gracefully to the original image (a warn + pass-
-    // through in the adapter's images template).
-    // "binding": "IMAGES"
-  }
+  ]
 }
