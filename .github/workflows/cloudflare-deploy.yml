@@ -6,9 +6,11 @@ name: Cloudflare Deploy
 # secrets — set them once via the dashboard or `pnpm --filter frontend exec
 # wrangler secret put NAME` (see docs/deployment.md).
 #
-# Inert until CLOUDFLARE_API_TOKEN is configured, mirroring the Docker Hub
-# gating in ci.yml/docker-build.yml: the probe step exports HAS_CF_CREDS and
-# every build/deploy step is gated on it, so pushes to main stay green.
+# The OpenNext build ALWAYS runs so `build:cf` is continuously validated on
+# CI infra — the first real deploy is never the first execution of that build
+# path. Only the final `wrangler deploy` is gated on CLOUDFLARE_API_TOKEN
+# (probe step exports HAS_CF_CREDS; run: allows secrets, step if: does not),
+# so pushes to main stay green until Cloudflare is configured.
 
 on:
   push:
@@ -67,42 +69,41 @@ jobs:
           fi
 
       - uses: pnpm/action-setup@v4
-        if: env.HAS_CF_CREDS == 'true'
 
       - uses: actions/setup-node@v4
-        if: env.HAS_CF_CREDS == 'true'
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        if: env.HAS_CF_CREDS == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client
-        if: env.HAS_CF_CREDS == 'true'
         run: pnpm --filter @theo/database exec prisma generate
 
       - name: Sync schema
-        if: env.HAS_CF_CREDS == 'true'
         run: pnpm --filter @theo/database exec prisma db push --skip-generate
 
       # @theo/database resolves via dist/ at build time (main: ./dist/index.js);
       # build:cf only runs the frontend script, so build the dependency first.
       - name: Build workspace dependencies
-        if: env.HAS_CF_CREDS == 'true'
         run: pnpm --filter @theo/database run build
 
       # NEXT_PUBLIC_* are inlined at build time — passed through from GitHub
       # secrets when configured (empty means the value is not set yet; the
       # Worker will still build, Clerk-hosted UI needs the real key to render).
       - name: Build OpenNext bundle
-        if: env.HAS_CF_CREDS == 'true'
         env:
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
         run: pnpm --filter frontend run build:cf
+
+      # Bundle validation without any Cloudflare credentials (no token → no
+      # auth needed). Catches binding/config errors in wrangler.jsonc on every
+      # push instead of surfacing them on the first real deploy.
+      - name: Validate Worker bundle (dry-run)
+        run: pnpm --filter frontend exec wrangler deploy --dry-run
 
       - name: Deploy to Cloudflare Workers
         if: env.HAS_CF_CREDS == 'true'

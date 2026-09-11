@@ -37,8 +37,12 @@ Optional build-time (`NEXT_PUBLIC_*`) secrets: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KE
 `NEXT_PUBLIC_SITE_URL`, `NEXT_PUBLIC_API_URL` — these are inlined at build
 time, so set them as repo secrets too, matching the Worker values.
 
-Until the token is set, the workflow prints a skip message and exits green,
-like the gated Docker jobs.
+The OpenNext build and a `wrangler deploy --dry-run` bundle validation run on
+every push regardless of credentials (dry-run needs no auth), so `build:cf`
+is continuously exercised on CI infra — the first real deploy is never the
+first execution of that build path. Only the final `wrangler deploy` is
+gated: until the token is set, the workflow builds, validates, prints a skip
+message, and exits green (same pattern as the gated Docker jobs).
 
 ### One-time setup (Cloudflare dashboard)
 
