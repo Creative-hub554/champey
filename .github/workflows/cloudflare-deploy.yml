@@ -35,6 +35,10 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Include the repo's 'production' environment so environment-scoped secrets
+    # are visible too (GitHub merges env + repo secrets; env wins on collision).
+    # It has no protection rules, so this does not gate or pause deploys.
+    environment: production
     services:
       # next build prerenders DB-backed pages, exactly like the CI verify job.
       postgres:
