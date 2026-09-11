@@ -1,11 +1,53 @@
 # Deployment
 
-How the CompusMarket / champey.com platform is deployed. Current state: the
-full self-hosted Docker Compose stack exists in-repo (`docker/compose.prod.yml`),
-but **no production host is reachable yet** — DNS for `champey.com` resolves
-(AWS) but nothing answers HTTPS, and no CI deploy secrets are configured. This
-doc is the runbook for standing up the stack on a fresh host and for enabling
-the CI deploy jobs.
+How the CompusMarket / champey.com platform is deployed. Two paths:
+
+1. **Cloudflare Workers (frontend, current)** — `apps/frontend` deploys via
+   OpenNext (`build:cf`/`deploy:cf` scripts, `wrangler.jsonc`,
+   `open-next.config.ts`). See the "Cloudflare Workers (frontend)" section.
+2. **Self-hosted Docker Compose (full stack)** — the full stack exists in-repo
+   (`docker/compose.prod.yml`), but **no production host is reachable yet** —
+   DNS for `champey.com` resolves (AWS) but nothing answers HTTPS, and no CI
+   deploy secrets are configured. This doc is the runbook for standing up the
+   stack on a fresh host and for enabling the CI deploy jobs.
+
+## Cloudflare Workers (frontend)
+
+The storefront is an SSR Next.js app, so it **cannot** deploy as a static
+`dist/` folder on Cloudflare Pages — that fails with
+`Output directory "dist" not found`. Use OpenNext → Workers instead.
+
+Commit `f4f84b7` ("Add files via upload", 2026-09-04) was a root-only upload
+with no `apps/`/`packages/` — never pin a Cloudflare deploy to it. If a
+Cloudflare deployment keeps rebuilding that SHA, the project is pinned (or a
+cached "Retry deployment" is being clicked); re-point it at `main`.
+
+### One-time setup (Cloudflare dashboard)
+
+1. Workers & Pages → Create → Workers → **Import a repository** →
+   `Creative-hub554/champey`, branch `main` (do **not** reuse the old Pages
+   project pinned to `f4f84b7`).
+2. Build settings: working directory `apps/frontend`,
+   **Build command** `pnpm run build:cf`, **Deploy command**
+   `npx wrangler deploy` (reads `apps/frontend/wrangler.jsonc`).
+3. First deploy, then Worker → Settings → Variables and Secrets:
+   `DATABASE_URL` (public TCP-reachable Postgres — Neon/Supabase pooler, not
+   localhost), `CLERK_SECRET_KEY`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+   `NEXT_PUBLIC_SITE_URL` (the worker URL), `CLERK_WEBHOOK_SECRET`,
+   `JWT_SECRET`, `AUTH_SECRET`, `SENTRY_DSN` +
+   `NEXT_PUBLIC_SENTRY_DSN` (if Sentry used), MinIO/S3 vars for uploads.
+4. Point the Clerk webhook at `https://<worker>/api/webhooks/clerk`.
+
+### Local commands
+
+```bash
+pnpm --filter frontend run build:cf     # next build + opennextjs-cloudflare build
+pnpm --filter frontend run preview:cf   # serve the Worker locally via wrangler
+pnpm --filter frontend run deploy:cf    # build + deploy to Cloudflare
+```
+
+ISR caching across isolates needs an R2 bucket (`NEXT_INC_CACHE_R2_BUCKET`
+binding + `r2IncrementalCache` override — both stubbed in the configs).
 
 ## Target topology
 
