@@ -63,15 +63,30 @@ jobs:
       - name: Detect Cloudflare credentials
         # The secrets context is unavailable in step if:, so probe it here
         # (run: allows secrets) and gate later steps on env.HAS_CF_CREDS.
+        # Reports name-level presence only (never values) so a mis-scoped or
+        # mistyped secret is diagnosable from the run log.
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
         run: |
-          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
+          missing=0
+          for s in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -n "${!s}" ]; then echo "$s: set"; else echo "$s: MISSING"; missing=1; fi
+          done
+          for s in NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY NEXT_PUBLIC_SITE_URL NEXT_PUBLIC_API_URL; do
+            if [ -n "${!s}" ]; then echo "$s: set"; else echo "$s: not set (optional at build time)"; fi
+          done
+          if [ "$missing" -eq 0 ]; then
             echo "HAS_CF_CREDS=true" >> "$GITHUB_ENV"
-            echo "Cloudflare credentials configured — deploying frontend Worker"
+            echo "→ deploying frontend Worker"
           else
             echo "HAS_CF_CREDS=false" >> "$GITHUB_ENV"
-            echo "CLOUDFLARE_API_TOKEN not set — skipping Cloudflare deploy (see docs/deployment.md)"
+            echo "→ skipping deploy. If these secrets were saved under the 'production'"
+            echo "   ENVIRONMENT (Settings → Environments) instead of repo scope, this job"
+            echo "   cannot see them: re-add at Settings → Secrets and variables → Actions."
           fi
 
       - uses: pnpm/action-setup@v4
