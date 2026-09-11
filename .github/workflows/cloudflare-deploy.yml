@@ -54,6 +54,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fails in ~1s with a clear message when wrangler.jsonc is malformed —
+      # an empty "images": {} once cost a full 3-minute OpenNext build before
+      # wrangler rejected it ("binding should have a string \"binding\" field").
+      - name: Check wrangler.jsonc (fast schema check)
+        run: node scripts/check-wrangler-jsonc.mjs apps/frontend/wrangler.jsonc
+
       - name: Detect Cloudflare credentials
         # The secrets context is unavailable in step if:, so probe it here
         # (run: allows secrets) and gate later steps on env.HAS_CF_CREDS.

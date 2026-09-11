@@ -56,6 +56,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Fast config gate (~1s, no deps): catches malformed wrangler.jsonc on
+      # PRs before anything else runs. Mirrors the check in cloudflare-deploy.yml.
+      - name: Check wrangler.jsonc (fast schema check)
+        run: node scripts/check-wrangler-jsonc.mjs apps/frontend/wrangler.jsonc
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4

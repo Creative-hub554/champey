@@ -119,6 +119,9 @@ jobs:
           # binding — the only two occurrences of "champey-frontend" in the
           # config — so the preview is a fully separate Worker.
           sed "s/champey-frontend/${PREVIEW_NAME}/g" wrangler.jsonc > wrangler.preview.jsonc
+          # Validate the rewritten config before deploying: catches a name/self-
+          # reference mismatch or a config regression on the PR branch.
+          node ../../scripts/check-wrangler-jsonc.mjs wrangler.preview.jsonc
           OUT=$(npx wrangler deploy --config wrangler.preview.jsonc \
             --var "NEXT_INC_CACHE_R2_PREFIX:pr-${PR_NUMBER}" 2>&1)
           echo "$OUT"
