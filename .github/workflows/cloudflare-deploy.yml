@@ -111,6 +111,12 @@ jobs:
       - name: Validate Worker bundle (dry-run)
         run: pnpm --filter frontend exec wrangler deploy --dry-run
 
+      # Config ↔ artifact consistency: worker bundle exists and is non-trivial,
+      # static assets (incl. _next/static) were emitted, declared R2/service
+      # bindings are referenced by the generated worker.
+      - name: Check generated bundle artifacts
+        run: node scripts/check-wrangler-jsonc.mjs --post-build
+
       - name: Deploy to Cloudflare Workers
         if: env.HAS_CF_CREDS == 'true'
         uses: cloudflare/wrangler-action@v3

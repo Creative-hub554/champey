@@ -25,17 +25,38 @@
  *        - compatibility_date present and not older than ~6 months
  *          (the adapter warns at build time; here it is an explicit note).
  *
- * Usage: node scripts/check-wrangler-jsonc.mjs [paths...]   (default: apps/frontend/wrangler.jsonc)
+ * Post-build mode (--post-build): additionally verifies the artifacts the
+ * OpenNext build produced (".open-next") match the config — the worker entry
+ * exists and is non-trivial, static assets were emitted, and declared R2/service
+ * bindings are actually referenced by the generated bundle (an unreferenced R2
+ * cache binding usually means the open-next.config.ts override is not wired).
+ *
+ * Usage: node scripts/check-wrangler-jsonc.mjs [--post-build] [paths...]
+ *        (default path: apps/frontend/wrangler.jsonc)
  * Exit 0 = all checks pass; exit 1 with ::error annotations = failure.
  */
 
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const defaultPaths = ["apps/frontend/wrangler.jsonc"];
-const paths = process.argv.slice(2).length > 0 ? process.argv.slice(2) : defaultPaths;
+const repoRoot = dirname(scriptDir); // scripts/ lives at the repo root
+
+const argv = process.argv.slice(2);
+const postBuild = argv.includes("--post-build");
+const pathArgs = argv.filter((a) => a !== "--post-build");
+// No explicit paths: default to the repo-root-relative frontend config no
+// matter where the script is invoked from. Explicit args stay cwd-relative
+// (e.g. the preview workflow passes wrangler.preview.jsonc from apps/frontend).
+const paths =
+  pathArgs.length > 0
+    ? pathArgs
+    : [join(relative(process.cwd(), repoRoot) || ".", "apps/frontend/wrangler.jsonc")];
+
+// The OpenNext worker bundle is the entire Next.js server (usually MBs).
+// Anything below this is not a real bundle (truncated write, failed build).
+const MIN_WORKER_BYTES = 10 * 1024;
 
 // ---------------------------------------------------------------------------
 // Minimal JSONC parser: strips // and /* */ comments and trailing commas, then
@@ -236,6 +257,95 @@ for (const file of paths) {
           `but the Worker is named "${config.name}" — these must match (OpenNext ` +
           `internal self-fetches use this binding; the PR-preview sed rewrite depends on it).`
       );
+    }
+  }
+
+  if (postBuild) {
+    checkBuildArtifacts(file, config, dirname(abs));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Post-build (--post-build): config ↔ .open-next artifact consistency.
+// Wrangler validates bindings at deploy time, but it cannot tell you that the
+// OpenNext build silently produced no assets or an empty worker — this can.
+// ---------------------------------------------------------------------------
+function checkBuildArtifacts(file, config, baseDir) {
+  // 1. Worker entry point: must exist and be a real bundle.
+  if (typeof config.main === "string" && config.main.length > 0) {
+    const mainPath = join(baseDir, config.main);
+    if (!existsSync(mainPath)) {
+      errors.push(
+        `${file}: main entry "${config.main}" does not exist — the OpenNext build ` +
+          `did not produce a worker bundle. Run the build (pnpm --filter frontend run build:cf) before this check.`
+      );
+    } else {
+      const size = statSync(mainPath).size;
+      if (size < MIN_WORKER_BYTES) {
+        errors.push(
+          `${file}: main entry "${config.main}" is only ${size} bytes — not a real worker ` +
+            `bundle (truncated or failed build).`
+        );
+      }
+      // Keep the source around for the binding-reference heuristic below.
+      checkBuildArtifacts._mainPath = mainPath;
+    }
+  }
+
+  // 2. Static assets: the assets directory must exist and contain _next/static.
+  const assetsDir = config.assets && typeof config.assets.directory === "string"
+    ? config.assets.directory
+    : null;
+  if (assetsDir) {
+    const dir = join(baseDir, assetsDir);
+    if (!existsSync(dir) || !statSync(dir).isDirectory()) {
+      errors.push(
+        `${file}: assets.directory "${assetsDir}" does not exist — static assets were ` +
+          `not emitted by the build (the site would deploy without JS/CSS).`
+      );
+    } else {
+      const nextStatic = join(dir, "_next", "static");
+      if (!existsSync(nextStatic)) {
+        errors.push(
+          `${file}: assets directory "${assetsDir}" has no _next/static — hashed Next.js ` +
+            `JS/CSS chunks are missing from the bundle.`
+        );
+      }
+    }
+  }
+
+  // 3. Binding-reference heuristic: every declared R2 bucket / service binding
+  // should appear in the generated worker. An unreferenced NEXT_INC_CACHE_R2_BUCKET
+  // typically means open-next.config.ts no longer wires the override.
+  const mainPath = checkBuildArtifacts._mainPath;
+  const declared = [];
+  if (Array.isArray(config.r2_buckets)) {
+    for (const b of config.r2_buckets) {
+      if (b && typeof b.binding === "string") declared.push(b.binding);
+    }
+  }
+  if (Array.isArray(config.services)) {
+    for (const s of config.services) {
+      if (s && typeof s.binding === "string" && s.binding !== "WORKER_SELF_REFERENCE") {
+        declared.push(s.binding);
+      }
+    }
+  }
+  if (mainPath && declared.length > 0) {
+    let source;
+    try {
+      source = readFileSync(mainPath, "utf8");
+    } catch {
+      return; // unreadable bundle: already reported above if too small
+    }
+    for (const binding of declared) {
+      if (!source.includes(binding)) {
+        warnings.push(
+          `${file}: binding "${binding}" is declared in the config but never referenced ` +
+            `by the generated worker — if this is the incremental cache, check that ` +
+            `open-next.config.ts still wires the override.`
+        );
+      }
     }
   }
 }

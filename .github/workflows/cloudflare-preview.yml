@@ -105,6 +105,11 @@ jobs:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
         run: pnpm --filter frontend run build:cf
 
+      # Config ↔ artifact consistency on the PR branch's build output.
+      - name: Check generated bundle artifacts
+        if: env.HAS_CF_CREDS == 'true'
+        run: node scripts/check-wrangler-jsonc.mjs --post-build
+
       - name: Deploy preview Worker
         id: deploy
         if: env.HAS_CF_CREDS == 'true'
