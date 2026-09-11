@@ -124,8 +124,10 @@ string `binding` on every binding-carrying block, duplicate binding names,
 `WORKER_SELF_REFERENCE.service === name` (the PR-preview `sed` rewrite
 depends on it), and warns on a `compatibility_date` older than ~6 months.
 With `--post-build` (run in CI after the OpenNext build) it also verifies the
-worker bundle exists and is non-trivial, `_next/static` was emitted, and
-declared R2/service bindings are actually referenced by the generated bundle.
+bootstrap `worker.js` and the real server bundle (`server-functions/default/`
+— the adapter keeps the top-level worker tiny and imports the server from
+there) exist and are non-trivial, `_next/static` was emitted, and declared
+R2/service bindings are actually referenced by the server chunks.
 
 - CI wiring: `ci.yml` verify, `cloudflare-deploy.yml` (pre-build and
   post-build), and the preview deploy step (validates the rewritten preview

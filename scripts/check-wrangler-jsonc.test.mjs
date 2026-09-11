@@ -40,21 +40,37 @@ function runChecker(args) {
   }
 }
 
-/** Builds a fake OpenNext output tree next to a wrangler.jsonc fixture. */
-function makePostBuildFixture({ workerBytes = 24 * 1024, withNextStatic = true, workerBody = "" } = {}) {
+/**
+ * Builds a fake OpenNext output tree matching @opennextjs/cloudflare v1.x:
+ * a tiny bootstrap worker.js plus the real server in
+ * server-functions/default/ (large, references bindings).
+ */
+function makePostBuildFixture({
+  serverBytes = 200 * 1024,
+  withNextStatic = true,
+  withServerDir = true,
+  serverBody = "",
+} = {}) {
   const dir = makeFixtureDir();
   mkdirSync(join(dir, ".open-next", "assets"), { recursive: true });
   if (withNextStatic) {
     mkdirSync(join(dir, ".open-next", "assets", "_next", "static"), { recursive: true });
     writeFileSync(join(dir, ".open-next", "assets", "_next", "static", "chunk.abc123.js"), "1;");
   }
-  // Realistic bundle: > 10KB and references the R2 binding unless told not to.
-  const content =
-    workerBody ||
-    `export default { fetch() {} };\n// env.NEXT_INC_CACHE_R2_BUCKET.get(key)\n`.repeat(
-      Math.ceil(workerBytes / 60)
-    );
-  writeFileSync(join(dir, ".open-next", "worker.js"), content);
+  // Bootstrap worker: small by design; the server lives in server-functions.
+  writeFileSync(
+    join(dir, ".open-next", "worker.js"),
+    `export default { fetch(req, env, ctx) {} };\nconst h = await import("./server-functions/default/handler.mjs");\n`
+  );
+  if (withServerDir) {
+    const content =
+      serverBody ||
+      `export async function handler(req, env) { env.NEXT_INC_CACHE_R2_BUCKET.get("k"); }\n`.repeat(
+        Math.ceil(serverBytes / 76)
+      );
+    mkdirSync(join(dir, ".open-next", "server-functions", "default"), { recursive: true });
+    writeFileSync(join(dir, ".open-next", "server-functions", "default", "handler.mjs"), content);
+  }
   const config = `{
   "name": "${WORKER}",
   "main": ".open-next/worker.js",
@@ -259,12 +275,23 @@ test("post-build fails when the worker bundle is missing", () => {
   }
 });
 
-test("post-build fails on a truncated (undersized) worker bundle", () => {
-  const { dir, file } = makePostBuildFixture({ workerBytes: 100 });
+test("post-build fails on a truncated (undersized) server bundle", () => {
+  const { dir, file } = makePostBuildFixture({ serverBytes: 500 });
   try {
     const { status, stdout } = runChecker(["--post-build", file]);
     assert.equal(status, 1);
-    assert.match(stdout, /::error::.*not a real worker bundle/);
+    assert.match(stdout, /::error::.*not a real\s+server bundle/);
+  } finally {
+    cleanup(dir);
+  }
+});
+
+test("post-build fails when server-functions/default is missing entirely", () => {
+  const { dir, file } = makePostBuildFixture({ withServerDir: false });
+  try {
+    const { status, stdout } = runChecker(["--post-build", file]);
+    assert.equal(status, 1);
+    assert.match(stdout, /::error::.*produced no server bundle/);
   } finally {
     cleanup(dir);
   }
@@ -283,7 +310,7 @@ test("post-build fails when _next/static is missing from assets", () => {
 
 test("post-build warns when a declared R2 binding is not referenced by the bundle", () => {
   const { dir, file } = makePostBuildFixture({
-    workerBody: `export default { fetch() {} };\n`.repeat(1000), // >10KB, no binding ref
+    serverBody: `export async function handler(req, env) {}\n`.repeat(3000), // >100KB, no binding ref
   });
   try {
     const { status, stdout } = runChecker(["--post-build", file]);

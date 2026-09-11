@@ -26,9 +26,10 @@
  *          (the adapter warns at build time; here it is an explicit note).
  *
  * Post-build mode (--post-build): additionally verifies the artifacts the
- * OpenNext build produced (".open-next") match the config — the worker entry
- * exists and is non-trivial, static assets were emitted, and declared R2/service
- * bindings are actually referenced by the generated bundle (an unreferenced R2
+ * OpenNext build produced (".open-next") match the config — the bootstrap
+ * worker and the real server bundle (server-functions/default) exist and are
+ * non-trivial, static assets were emitted, and declared R2/service bindings
+ * are actually referenced by the generated server chunks (an unreferenced R2
  * cache binding usually means the open-next.config.ts override is not wired).
  *
  * Usage: node scripts/check-wrangler-jsonc.mjs [--post-build] [paths...]
@@ -36,7 +37,7 @@
  * Exit 0 = all checks pass; exit 1 with ::error annotations = failure.
  */
 
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -54,9 +55,10 @@ const paths =
     ? pathArgs
     : [join(relative(process.cwd(), repoRoot) || ".", "apps/frontend/wrangler.jsonc")];
 
-// The OpenNext worker bundle is the entire Next.js server (usually MBs).
-// Anything below this is not a real bundle (truncated write, failed build).
-const MIN_WORKER_BYTES = 10 * 1024;
+// The real Next.js server lives in .open-next/server-functions/default/
+// (usually MBs); the top-level worker.js is only a tiny bootstrap. Anything
+// below this across the server bundle is not a real build (truncated/failed).
+const MIN_SERVER_BYTES = 100 * 1024;
 
 // ---------------------------------------------------------------------------
 // Minimal JSONC parser: strips // and /* */ comments and trailing commas, then
@@ -271,25 +273,47 @@ for (const file of paths) {
 // OpenNext build silently produced no assets or an empty worker — this can.
 // ---------------------------------------------------------------------------
 function checkBuildArtifacts(file, config, baseDir) {
-  // 1. Worker entry point: must exist and be a real bundle.
+  // 1. Worker entry point + server bundle. In @opennextjs/cloudflare v1.x the
+  // top-level worker.js is a ~2KB bootstrap that imports
+  // ./server-functions/default/handler.mjs — the real Next.js server. The
+  // size check therefore applies to the server-functions output, not the
+  // bootstrap (which is small by design).
+  const openNextDir =
+    typeof config.main === "string" && config.main.includes("/")
+      ? join(baseDir, dirname(config.main))
+      : baseDir;
   if (typeof config.main === "string" && config.main.length > 0) {
-    const mainPath = join(baseDir, config.main);
-    if (!existsSync(mainPath)) {
+    if (!existsSync(join(baseDir, config.main))) {
       errors.push(
         `${file}: main entry "${config.main}" does not exist — the OpenNext build ` +
           `did not produce a worker bundle. Run the build (pnpm --filter frontend run build:cf) before this check.`
       );
-    } else {
-      const size = statSync(mainPath).size;
-      if (size < MIN_WORKER_BYTES) {
-        errors.push(
-          `${file}: main entry "${config.main}" is only ${size} bytes — not a real worker ` +
-            `bundle (truncated or failed build).`
-        );
-      }
-      // Keep the source around for the binding-reference heuristic below.
-      checkBuildArtifacts._mainPath = mainPath;
     }
+  }
+  const serverDir = join(openNextDir, "server-functions", "default");
+  checkBuildArtifacts._serverDir = serverDir;
+  checkBuildArtifacts._serverSources = [];
+  if (existsSync(serverDir)) {
+    let totalBytes = 0;
+    const sources = [];
+    for (const rel of readdirSync(serverDir, { recursive: true })) {
+      const p = join(serverDir, rel);
+      if (!statSync(p).isFile()) continue;
+      totalBytes += statSync(p).size;
+      if (!p.endsWith(".map")) sources.push(p);
+    }
+    if (totalBytes < MIN_SERVER_BYTES) {
+      errors.push(
+        `${file}: ${relative(baseDir, serverDir)} is only ${totalBytes} bytes — not a real ` +
+          `server bundle (truncated or failed build).`
+      );
+    }
+    checkBuildArtifacts._serverSources = sources;
+  } else {
+    errors.push(
+      `${file}: ${relative(baseDir, serverDir)} does not exist — the OpenNext build ` +
+        `produced no server bundle (the adapter's server-functions output is missing).`
+    );
   }
 
   // 2. Static assets: the assets directory must exist and contain _next/static.
@@ -315,9 +339,11 @@ function checkBuildArtifacts(file, config, baseDir) {
   }
 
   // 3. Binding-reference heuristic: every declared R2 bucket / service binding
-  // should appear in the generated worker. An unreferenced NEXT_INC_CACHE_R2_BUCKET
-  // typically means open-next.config.ts no longer wires the override.
-  const mainPath = checkBuildArtifacts._mainPath;
+  // should appear somewhere in the generated server chunks (the bootstrap
+  // worker does not reference bindings directly). An unreferenced
+  // NEXT_INC_CACHE_R2_BUCKET typically means open-next.config.ts no longer
+  // wires the override.
+  const serverSources = checkBuildArtifacts._serverSources;
   const declared = [];
   if (Array.isArray(config.r2_buckets)) {
     for (const b of config.r2_buckets) {
@@ -331,19 +357,19 @@ function checkBuildArtifacts(file, config, baseDir) {
       }
     }
   }
-  if (mainPath && declared.length > 0) {
-    let source;
+  if (serverSources.length > 0 && declared.length > 0) {
+    let haystack = "";
     try {
-      source = readFileSync(mainPath, "utf8");
+      for (const p of serverSources) haystack += readFileSync(p, "utf8") + "\n";
     } catch {
-      return; // unreadable bundle: already reported above if too small
+      return; // unreadable bundle: already reported above if missing/too small
     }
     for (const binding of declared) {
-      if (!source.includes(binding)) {
+      if (!haystack.includes(binding)) {
         warnings.push(
           `${file}: binding "${binding}" is declared in the config but never referenced ` +
-            `by the generated worker — if this is the incremental cache, check that ` +
-            `open-next.config.ts still wires the override.`
+            `by the generated server bundle — if this is the incremental cache, check ` +
+            `that open-next.config.ts still wires the override.`
         );
       }
     }
