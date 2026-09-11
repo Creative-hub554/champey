@@ -70,8 +70,17 @@ pnpm --filter frontend run preview:cf   # serve the Worker locally via wrangler
 pnpm --filter frontend run deploy:cf    # build + deploy to Cloudflare
 ```
 
-ISR caching across isolates needs an R2 bucket (`NEXT_INC_CACHE_R2_BUCKET`
-binding + `r2IncrementalCache` override — both stubbed in the configs).
+ISR caching across isolates is wired: `open-next.config.ts` uses the
+`r2IncrementalCache` override and `wrangler.jsonc` binds
+`NEXT_INC_CACHE_R2_BUCKET` → bucket `champey-isr-cache`. Create the bucket
+once (the API token from the CI section needs R2 Edit for this):
+
+```bash
+pnpm --filter frontend exec wrangler r2 bucket create champey-isr-cache
+```
+
+Cache entries can be scoped with the `NEXT_INC_CACHE_R2_PREFIX` Worker var
+(defaults to `incremental-cache`).
 
 ## Target topology
 

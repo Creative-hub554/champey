@@ -27,11 +27,12 @@
     }
   ],
   "r2_buckets": [
-    // Optional: enable Next.js incremental caching across isolates once an
-    // R2 bucket exists. Also wire r2IncrementalCache in open-next.config.ts.
-    // {
-    //   "binding": "NEXT_INC_CACHE_R2_BUCKET",
-    //   "bucket_name": "champey-isr-cache"
-    // }
+    {
+      // Next.js incremental cache (ISR + fetch cache) shared across Worker
+      // isolates — see open-next.config.ts (r2IncrementalCache). Create the
+      // bucket once: wrangler r2 bucket create champey-isr-cache
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "champey-isr-cache"
+    }
   ]
 }
