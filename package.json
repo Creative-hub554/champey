@@ -5,7 +5,8 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "test:scripts": "node --test \"scripts/*.test.mjs\""
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.10",

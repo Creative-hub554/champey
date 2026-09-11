@@ -61,6 +61,11 @@ jobs:
       - name: Check wrangler.jsonc (fast schema check)
         run: node scripts/check-wrangler-jsonc.mjs apps/frontend/wrangler.jsonc
 
+      # Tests for the checker script itself (node --test, no dependencies —
+      # runs before pnpm/setup-node on purpose so it gates everything cheaply).
+      - name: Test repo scripts
+        run: node --test scripts/check-wrangler-jsonc.test.mjs
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4

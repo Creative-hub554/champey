@@ -111,6 +111,29 @@ Verified from the installed adapter's source, not just docs:
 - **Env vars** — the adapter reads config from `open-next.config.ts`; keep
   runtime secrets in the dashboard/`wrangler secret put`, never in the repo.
 
+### wrangler.jsonc fast-check (CI)
+
+`scripts/check-wrangler-jsonc.mjs` is a zero-dependency Node script that
+validates `apps/frontend/wrangler.jsonc` in ~1 second — before any build runs.
+It exists because an empty `"images": {}` once failed wrangler's config parse
+~1s into a 3-minute OpenNext build with an opaque
+`binding should have a string "binding" field`.
+
+It checks: JSONC syntax (comments + trailing commas, like wrangler's parser),
+string `binding` on every binding-carrying block, duplicate binding names,
+`WORKER_SELF_REFERENCE.service === name` (the PR-preview `sed` rewrite
+depends on it), and warns on a `compatibility_date` older than ~6 months.
+With `--post-build` (run in CI after the OpenNext build) it also verifies the
+worker bundle exists and is non-trivial, `_next/static` was emitted, and
+declared R2/service bindings are actually referenced by the generated bundle.
+
+- CI wiring: `ci.yml` verify, `cloudflare-deploy.yml` (pre-build and
+  post-build), and the preview deploy step (validates the rewritten preview
+  config before deploying).
+- Tests: `scripts/check-wrangler-jsonc.test.mjs` (`pnpm test:scripts`,
+  Node's built-in runner) — 18 cases including the `images: {}` regression
+  and a drift guard asserting the real config still passes.
+
 ### Pull-request previews (Cloudflare)
 
 `.github/workflows/cloudflare-preview.yml` deploys a preview Worker per PR
